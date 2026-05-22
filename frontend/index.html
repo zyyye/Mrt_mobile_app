@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>MRT Fare Calculator</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="ZY MRT fare calculator :D">
+    <meta name="theme-color" content="#4CAF50">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%234CAF50' width='192' height='192'/><text x='96' y='140' font-size='120' fill='white' text-anchor='middle' font-weight='bold'>🚇</text></svg>">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        h2 {
+            color: #333;
+            text-align: center;
+        }
+
+        .form-group {
+            margin: 20px 0;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .autocomplete-container {
+            position: relative;
+            width: 100%;
+        }
+
+        input[type="text"] {
+            padding: 12px;
+            width: 100%;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+            box-sizing: border-box;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #4CAF50;
+            box-shadow: 0 0 5px rgba(76, 175, 80, 0.3);
+        }
+
+        .autocomplete-list {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background-color: white;
+            border: 2px solid #ddd;
+            border-top: none;
+            max-height: 250px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+            border-radius: 0 0 4px 4px;
+        }
+
+        .autocomplete-list.active {
+            display: block;
+        }
+
+        .autocomplete-item {
+            padding: 12px;
+            cursor: pointer;
+            border-bottom: 1px solid #eee;
+            transition: background-color 0.2s;
+        }
+
+        .autocomplete-item:hover,
+        .autocomplete-item.selected {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        .autocomplete-item:last-child {
+            border-bottom: none;
+        }
+
+        button {
+            padding: 12px;
+            width: 100%;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            margin-top: 20px;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
+        .result {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: white;
+            border-radius: 4px;
+            border-left: 4px solid #4CAF50;
+            display: none;
+        }
+
+        .result.show {
+            display: block;
+        }
+
+        .result-content {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .result-item {
+            display: flex;
+            justify-content: space-between;
+            margin: 10px 0;
+        }
+
+        .error {
+            color: #d32f2f;
+            background-color: #ffebee;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .error.show {
+            display: block;
+        }
+
+        .loading {
+            text-align: center;
+            color: #666;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .loading.show {
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+
+<h2>ZY MRT Fare Calculator :D</h2>
+
+<div class="form-group">
+    <label for="start">Start Station:</label>
+    <div class="autocomplete-container">
+        <input type="text" id="start" placeholder="Type station name..." autocomplete="off">
+        <div class="autocomplete-list" id="startList"></div>
+    </div>
+</div>
+
+<div class="form-group">
+    <label for="end">End Station:</label>
+    <div class="autocomplete-container">
+        <input type="text" id="end" placeholder="Type station name..." autocomplete="off">
+        <div class="autocomplete-list" id="endList"></div>
+    </div>
+</div>
+
+<button onclick="calculateFare()" id="calculateBtn">Calculate Fare</button>
+
+<div class="loading" id="loading">Loading...</div>
+
+<div class="result" id="result">
+    <div class="result-content">
+        <div class="result-item">
+            <span>Fare:</span>
+            <span id="fareAmount">$0.00</span>
+        </div>
+        <div class="result-item">
+            <span>Distance:</span>
+            <span id="distanceAmount">0 km</span>
+        </div>
+    </div>
+</div>
+
+<div class="error" id="error"></div>
+
+<script>
+// ==========================================
+// PRODUCTION CONFIGURATION
+// ==========================================
+// Replace with your Render backend URL when deploying
+// Example: https://your-backend.onrender.com
+const API_URL = "http://127.0.0.1:8000"; // Change for production
+
+let allStations = [];
+let selectedStart = null;
+let selectedEnd = null;
+
+// ==========================================
+// KEEP-ALIVE PING SYSTEM
+// ==========================================
+// Prevents backend cold start on free hosting (Render)
+function pingBackend() {
+    fetch(`${API_URL}/ping`).catch(() => {
+        console.log('Backend ping: service may be warming up');
+    });
+}
+
+// Ping immediately on load
+pingBackend();
+
+// Ping every 30 seconds to keep backend warm
+setInterval(pingBackend, 30000);
+
+// ==========================================
+// MAIN APPLICATION LOGIC
+// ==========================================
+
+// Fetch all stations on page load
+async function loadStations() {
+    try {
+        const response = await fetch(`${API_URL}/stations`);
+        allStations = await response.json();
+    } catch (error) {
+        console.error('Error loading stations:', error);
+        showError('Failed to load stations. Make sure the backend is running.');
+    }
+}
+
+// Setup autocomplete for both inputs
+function setupAutocomplete() {
+    setupInputAutocomplete('start', 'startList');
+    setupInputAutocomplete('end', 'endList');
+}
+
+// Setup autocomplete for a specific input
+function setupInputAutocomplete(inputId, listId) {
+    const input = document.getElementById(inputId);
+    const list = document.getElementById(listId);
+
+    input.addEventListener('input', (e) => {
+        const value = e.target.value.toLowerCase().trim();
+        
+        if (value.length === 0) {
+            list.classList.remove('active');
+            if (inputId === 'start') selectedStart = null;
+            else selectedEnd = null;
+            return;
+        }
+
+        const filtered = allStations.filter(station =>
+            station.toLowerCase().includes(value)
+        );
+
+        displaySuggestions(filtered, list, inputId);
+    });
+
+    input.addEventListener('focus', (e) => {
+        if (e.target.value.length > 0) {
+            const value = e.target.value.toLowerCase();
+            const filtered = allStations.filter(station =>
+                station.toLowerCase().includes(value)
+            );
+            displaySuggestions(filtered, list, inputId);
+        }
+    });
+
+    input.addEventListener('blur', () => {
+        // Close list after a short delay to allow item selection
+        setTimeout(() => {
+            list.classList.remove('active');
+        }, 150);
+    });
+}
+
+// Display filtered suggestions
+function displaySuggestions(stations, listElement, inputId) {
+    listElement.innerHTML = '';
+
+    if (stations.length === 0) {
+        const item = document.createElement('div');
+        item.className = 'autocomplete-item';
+        item.textContent = 'No stations found';
+        item.style.cursor = 'default';
+        listElement.appendChild(item);
+        listElement.classList.add('active');
+        return;
+    }
+
+    stations.forEach(station => {
+        const item = document.createElement('div');
+        item.className = 'autocomplete-item';
+        item.textContent = station;
+        item.onclick = () => {
+            selectStation(inputId, station, listElement);
+        };
+        listElement.appendChild(item);
+    });
+
+    listElement.classList.add('active');
+}
+
+// Handle station selection
+function selectStation(inputId, stationName, listElement) {
+    const input = document.getElementById(inputId);
+    input.value = stationName;
+    
+    if (inputId === 'start') {
+        selectedStart = stationName;
+    } else {
+        selectedEnd = stationName;
+    }
+
+    listElement.classList.remove('active');
+}
+
+// Calculate fare between two stations
+async function calculateFare() {
+    if (!selectedStart || !selectedEnd) {
+        showError('Please select both start and end stations.');
+        return;
+    }
+
+    if (selectedStart === selectedEnd) {
+        showError('Start and end stations must be different.');
+        return;
+    }
+
+    showLoading(true);
+    hideError();
+    hideResult();
+
+    try {
+        const url = `${API_URL}/fare?start=${encodeURIComponent(selectedStart)}&end=${encodeURIComponent(selectedEnd)}`;
+        const response = await fetch(url);
+
+        if (!response.ok) {
+            throw new Error('Failed to calculate fare');
+        }
+
+        const data = await response.json();
+
+        document.getElementById('fareAmount').textContent = `$${data.fare.toFixed(2)}`;
+        document.getElementById('distanceAmount').textContent = `${data.distance.toFixed(2)} km`;
+        showResult();
+    } catch (error) {
+        showError('Error calculating fare. Please try again.');
+        console.error('Error:', error);
+    } finally {
+        showLoading(false);
+    }
+}
+
+// UI helpers
+function showError(message) {
+    const errorDiv = document.getElementById('error');
+    errorDiv.textContent = message;
+    errorDiv.classList.add('show');
+}
+
+function hideError() {
+    document.getElementById('error').classList.remove('show');
+}
+
+function showResult() {
+    document.getElementById('result').classList.add('show');
+}
+
+function hideResult() {
+    document.getElementById('result').classList.remove('show');
+}
+
+function showLoading(show) {
+    const loading = document.getElementById('loading');
+    if (show) {
+        loading.classList.add('show');
+    } else {
+        loading.classList.remove('show');
+    }
+}
+
+// Allow Enter key to calculate
+document.addEventListener('DOMContentLoaded', () => {
+    loadStations();
+    setupAutocomplete();
+
+    document.getElementById('start').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') calculateFare();
+    });
+
+    document.getElementById('end').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') calculateFare();
+    });
+
+    // Register service worker for PWA functionality
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('service-worker.js').catch((err) => {
+            console.log('Service Worker registration failed:', err);
+        });
+    }
+});
+</script>
+
+</body>
+</html>
