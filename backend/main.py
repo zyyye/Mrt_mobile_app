@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from .stations import load_station_map
 from .lta_client import get_fare
@@ -11,13 +11,17 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "OPTIONS"],
     allow_headers=["*"],
 )
 
-station_map = load_station_map()
+station_map = {}
 
-init_db()  # run once on startup
+@app.on_event("startup")
+def startup_event():
+    global station_map
+    station_map = load_station_map()
+    init_db()
 
 @app.get("/ping")
 def ping():
@@ -27,10 +31,17 @@ def ping():
 @app.get("/stations")
 def get_stations():
     """Return all available stations as a list"""
+    if not station_map:
+        raise HTTPException(status_code=503, detail="Station data is not available")
     return sorted(list(station_map.keys()))
 
 @app.get("/fare")
 def fare(start: str, end: str):
+    if not station_map:
+        raise HTTPException(status_code=503, detail="Station data is not available")
+
+    if start not in station_map or end not in station_map:
+        raise HTTPException(status_code=400, detail="Invalid station selection")
 
     start_id = station_map[start]
     end_id = station_map[end]

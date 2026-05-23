@@ -209,7 +209,7 @@
 // ==========================================
 // Replace with your Render backend URL when deploying
 // Example: https://your-backend.onrender.com
-const API_URL = "http://127.0.0.1:8000"; // Change for production
+const API_URL = "https://zymrtfarecalc.onrender.com";
 
 let allStations = [];
 let selectedStart = null;
@@ -235,14 +235,37 @@ setInterval(pingBackend, 30000);
 // MAIN APPLICATION LOGIC
 // ==========================================
 
+const calculateBtn = document.getElementById('calculateBtn');
+const startInput = document.getElementById('start');
+const endInput = document.getElementById('end');
+
+function setInputsEnabled(enabled) {
+    startInput.disabled = !enabled;
+    endInput.disabled = !enabled;
+    calculateBtn.disabled = !enabled;
+}
+
 // Fetch all stations on page load
 async function loadStations() {
     try {
         const response = await fetch(`${API_URL}/stations`);
+
+        if (!response.ok) {
+            throw new Error(`Failed to load stations: ${response.status}`);
+        }
+
         allStations = await response.json();
+
+        if (!Array.isArray(allStations) || allStations.length === 0) {
+            throw new Error('Station list is empty');
+        }
+
+        setInputsEnabled(true);
+        hideError();
     } catch (error) {
         console.error('Error loading stations:', error);
-        showError('Failed to load stations. Make sure the backend is running.');
+        setInputsEnabled(false);
+        showError('Unable to load station list from backend. Please try again later.');
     }
 }
 
@@ -400,6 +423,7 @@ function showLoading(show) {
 
 // Allow Enter key to calculate
 document.addEventListener('DOMContentLoaded', () => {
+    setInputsEnabled(false);
     loadStations();
     setupAutocomplete();
 
