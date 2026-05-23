@@ -363,11 +363,6 @@ async function calculateFare() {
         return;
     }
 
-    if (selectedStart === selectedEnd) {
-        showError('Start and end stations must be different.');
-        return;
-    }
-
     showLoading(true);
     hideError();
     hideResult();
