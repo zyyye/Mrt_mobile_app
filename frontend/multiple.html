@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Calculate Multiple Trips</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#4CAF50">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: Inter, Georgia, 'Times New Roman', serif; background: #fbf6ef; color:#1f2937; padding:30px 14px }
+        .container { max-width:920px; margin:18px auto; background:#fff6f0; border-radius:14px; padding:24px; box-shadow:0 14px 34px rgba(16,24,40,0.06); border:1px solid rgba(34,34,34,0.03) }
+        h2{ text-align:center; margin:0 0 8px 0; font-size:20px }
+        .small{ color:#6b6b6b; font-size:13px }
+        .rows{ margin-top:18px }
+        .row{ display:flex; gap:16px; margin-bottom:12px; align-items:stretch; padding:10px; border-radius:12px; background: linear-gradient(90deg,#fffaf6, #fff3ec) }
+        .half{ flex:1 1 50%; position:relative; display:flex; justify-content:center }
+        /* shorten the input boxes inside each half so they look neat */
+        .half > input[type="text"]{ padding:11px 12px; width:100%; max-width:420px; border:1px solid #eedecf; border-radius:10px; background:#fffdf8 }
+        .half > input[type="text"]:focus{ outline:none; border-color:#ff7a3d; box-shadow:0 8px 20px rgba(255,122,61,0.06) }
+        .autocomplete-list{ position:absolute; left:calc(50% - 420px/2); right:calc(50% - 420px/2); top:100%; background:#fff; border:1px solid #f0e6de; border-top:none; max-height:220px; overflow:auto; border-radius:0 0 8px 8px; display:none; z-index:1200 }
+        .autocomplete-list.active{ display:block }
+        .autocomplete-item{ padding:10px 12px; cursor:pointer }
+        .autocomplete-item:hover{ background:#ff7a3d; color:#fff }
+        .controls{ display:flex; gap:12px; margin-top:14px }
+        .primary-btn{ padding:12px; background:#ff7a3d; color:#fff; border:none; border-radius:10px; cursor:pointer }
+        .secondary-btn{ padding:12px; background:#ffb089; color:#3b2b2b; border:none; border-radius:10px; cursor:pointer }
+        .primary-btn:hover{ filter:brightness(.97) }
+        .secondary-btn:hover{ filter:brightness(.97) }
+        .totals{ margin-top:18px; padding:14px; background:#fff7f0; border-radius:10px; border-left:4px solid #ff7a3d }
+        .per-row-result{ margin-top:8px; font-size:14px }
+    </style>
+</head>
+<body>
+
+<button id="backBtn" style="position:fixed; left:12px; top:12px; padding:8px 10px; background:#eee; border:1px solid #ccc; border-radius:4px; cursor:pointer">← Back</button>
+<div class="container">
+    <h2>Calculate Multiple Trips</h2>
+    <p class="small">Add pairs of start/end stations. When a row is filled a new empty row appears automatically.</p>
+
+
+    <div id="rows" class="rows"></div>
+
+<div class="controls">
+    <button id="addRowBtn" class="secondary-btn">Add Row</button>
+    </div>
+
+<div style="margin-top:12px;">
+    <button id="calcAllBtn" class="primary-btn" style="width:100%">Calculate All Fare</button>
+</div>
+
+<div class="totals" id="totals" style="display:none;">
+    <div><strong>Total Fare:</strong> <span id="totalFare">$0.00</span></div>
+    <div><strong>Total Distance:</strong> <span id="totalDistance">0.00 km</span></div>
+    <div id="perRowResults"></div>
+</div>
+
+</div>
+
+<script>
+const API_URL = "https://zymrtfarecalc.onrender.com";
+let allStations = [];
+let rowCounter = 0;
+let rowsState = {}; // {rowId: {start: name|null, end: name|null}}
+
+async function loadStations() {
+    try {
+        const res = await fetch(`${API_URL}/stations`);
+        allStations = await res.json();
+    } catch (e) {
+        console.error('Failed to load stations', e);
+        allStations = [];
+    }
+}
+
+function createRow() {
+    rowCounter += 1;
+    const id = rowCounter;
+    rowsState[id] = { start: null, end: null };
+
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.id = `row-${id}`;
+
+    const leftWrap = document.createElement('div');
+    leftWrap.className = 'half';
+    leftWrap.style.position = 'relative';
+    const leftInput = document.createElement('input');
+    leftInput.type = 'text';
+    leftInput.placeholder = 'Start station...';
+    leftInput.id = `start-${id}`;
+    const leftList = document.createElement('div');
+    leftList.className = 'autocomplete-list';
+    leftList.id = `startList-${id}`;
+    leftWrap.appendChild(leftInput);
+    leftWrap.appendChild(leftList);
+
+    const rightWrap = document.createElement('div');
+    rightWrap.className = 'half';
+    rightWrap.style.position = 'relative';
+    const rightInput = document.createElement('input');
+    rightInput.type = 'text';
+    rightInput.placeholder = 'End station...';
+    rightInput.id = `end-${id}`;
+    const rightList = document.createElement('div');
+    rightList.className = 'autocomplete-list';
+    rightList.id = `endList-${id}`;
+    rightWrap.appendChild(rightInput);
+    rightWrap.appendChild(rightList);
+
+    row.appendChild(leftWrap);
+    row.appendChild(rightWrap);
+
+    // Add row to DOM before wiring event handlers so elements are queryable
+    document.getElementById('rows').appendChild(row);
+
+    // Attach events
+    setupInputAutocompleteDynamic(leftInput.id, leftList.id, id, 'start');
+    setupInputAutocompleteDynamic(rightInput.id, rightList.id, id, 'end');
+}
+
+function setupInputAutocompleteDynamic(inputId, listId, rowId, side) {
+    const input = document.getElementById(inputId);
+    const list = document.getElementById(listId);
+
+    input.addEventListener('input', (e) => {
+        const value = e.target.value.toLowerCase().trim();
+        if (value.length === 0) { list.classList.remove('active'); rowsState[rowId][side] = null; return; }
+        const filtered = allStations.filter(s => s.toLowerCase().includes(value));
+        renderSuggestions(filtered, list, rowId, side);
+    });
+
+    input.addEventListener('focus', (e) => {
+        if (e.target.value.length > 0) {
+            const v = e.target.value.toLowerCase();
+            const filtered = allStations.filter(s => s.toLowerCase().includes(v));
+            renderSuggestions(filtered, list, rowId, side);
+        }
+    });
+
+    input.addEventListener('blur', () => {
+        setTimeout(() => list.classList.remove('active'), 150);
+    });
+}
+
+function renderSuggestions(stations, listElement, rowId, side) {
+    listElement.innerHTML = '';
+    if (!stations || stations.length === 0) {
+        const item = document.createElement('div');
+        item.className = 'autocomplete-item';
+        item.textContent = 'No stations found';
+        item.style.cursor = 'default';
+        listElement.appendChild(item);
+        listElement.classList.add('active');
+        return;
+    }
+    stations.forEach(station => {
+        const item = document.createElement('div');
+        item.className = 'autocomplete-item';
+        item.textContent = station;
+        item.onclick = () => {
+            document.getElementById(`${side}-${rowId}`).value = station;
+            rowsState[rowId][side] = station;
+            listElement.classList.remove('active');
+            // If both filled and this is the last row, add a new empty row
+            checkAndMaybeAddRow(rowId);
+        };
+        listElement.appendChild(item);
+    });
+    listElement.classList.add('active');
+}
+
+function checkAndMaybeAddRow(rowId) {
+    const state = rowsState[rowId];
+    // find highest row id
+    const maxId = Math.max(...Object.keys(rowsState).map(n => parseInt(n)));
+    if (state.start && state.end && rowId === maxId) {
+        createRow();
+    }
+}
+
+async function calculateAll() {
+    const results = [];
+    let totalFare = 0;
+    let totalDistance = 0;
+    const perRowEls = document.getElementById('perRowResults');
+    perRowEls.innerHTML = '';
+
+    for (const idStr of Object.keys(rowsState)) {
+        const id = parseInt(idStr);
+        const state = rowsState[id];
+        if (!state.start || !state.end) continue; // skip incomplete
+
+        try {
+            const url = `${API_URL}/fare?start=${encodeURIComponent(state.start)}&end=${encodeURIComponent(state.end)}`;
+            const res = await fetch(url);
+            if (!res.ok) throw new Error('Fail');
+            const data = await res.json();
+            totalFare += data.fare;
+            totalDistance += data.distance;
+
+            const div = document.createElement('div');
+            div.className = 'per-row-result';
+            div.textContent = `Row ${id}: ${state.start} → ${state.end} — $${data.fare.toFixed(2)}, ${data.distance.toFixed(2)} km`;
+            perRowEls.appendChild(div);
+        } catch (e) {
+            const div = document.createElement('div');
+            div.className = 'per-row-result';
+            div.textContent = `Row ${id}: ${state.start || '---'} → ${state.end || '---'} — Error calculating fare`;
+            perRowEls.appendChild(div);
+        }
+    }
+
+    document.getElementById('totalFare').textContent = `$${totalFare.toFixed(2)}`;
+    document.getElementById('totalDistance').textContent = `${totalDistance.toFixed(2)} km`;
+    document.getElementById('totals').style.display = 'block';
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', async () => {
+    await loadStations();
+    createRow();
+
+    document.getElementById('addRowBtn').addEventListener('click', createRow);
+    document.getElementById('calcAllBtn').addEventListener('click', calculateAll);
+    document.getElementById('backBtn').addEventListener('click', () => { location.href = 'index.html' });
+
+});
+</script>
+
+</body>
+</html>

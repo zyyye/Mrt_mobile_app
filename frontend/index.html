@@ -6,25 +6,42 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="ZY MRT fare calculator :D">
     <meta name="theme-color" content="#4CAF50">
-    <h3>Ver. 1.4</h3>
+    <h3>Ver. 1.5</h3> 
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/png" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%234CAF50' width='192' height='192'/><text x='96' y='140' font-size='120' fill='white' text-anchor='middle' font-weight='bold'>🚇</text></svg>">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
+        /* Professional UI/UX touchup */
         body {
-            font-family: Arial, sans-serif;
-            max-width: 600px;
-            margin: 50px auto;
-            padding: 20px;
-            background-color: #f5f5f5;
+            font-family: Inter, Georgia, 'Times New Roman', serif;
+            background: linear-gradient(180deg, #f7efe6 0%, #fffaf5 100%);
+            color: #2b2b2b;
+            -webkit-font-smoothing:antialiased;
+            -moz-osx-font-smoothing:grayscale;
+            padding: 36px 16px;
+        }
+
+        .container {
+            max-width: 680px;
+            margin: 28px auto;
+            background: #fff8f2; /* light warm beige */
+            border-radius: 12px;
+            box-shadow: 0 12px 30px rgba(33,33,33,0.06);
+            padding: 28px;
+            border: 1px solid rgba(34,34,34,0.03);
         }
 
         h2 {
-            color: #333;
+            color: #1f2937;
             text-align: center;
+            margin: 0 0 18px 0;
+            font-weight: 600;
+            letter-spacing: 0.2px;
+            font-size: 20px;
         }
 
         .form-group {
-            margin: 20px 0;
+            margin: 18px 0;
         }
 
         label {
@@ -40,19 +57,21 @@
         }
 
         input[type="text"] {
-            padding: 12px;
+            padding: 12px 14px;
             width: 100%;
-            border: 2px solid #ddd;
-            border-radius: 4px;
-            font-size: 16px;
+            border: 1px solid #eadccf;
+            border-radius: 10px;
+            font-size: 15px;
             box-sizing: border-box;
-            transition: border-color 0.3s;
+            transition: border-color 0.18s, box-shadow 0.18s;
+            background: #fffdf8;
+            color: #2b2b2b;
         }
 
         input[type="text"]:focus {
             outline: none;
-            border-color: #4CAF50;
-            box-shadow: 0 0 5px rgba(76, 175, 80, 0.3);
+            border-color: #2b8a8a;
+            box-shadow: 0 6px 18px rgba(43,138,138,0.08);
         }
 
         .autocomplete-list {
@@ -91,23 +110,36 @@
             border-bottom: none;
         }
 
-        button {
-            padding: 12px;
-            width: 100%;
-            background-color: #4CAF50;
-            color: white;
+        .btn-row { display:flex; flex-direction:column; gap:16px; margin-top:22px }
+
+        .btn-primary {
+            padding: 14px 16px;
+            background-color: #ff7a3d; /* warm orange */
+            color: #ffffff;
             border: none;
-            border-radius: 4px;
+            border-radius: 10px;
             font-size: 16px;
-            font-weight: bold;
+            font-weight: 700;
             cursor: pointer;
-            transition: background-color 0.3s;
-            margin-top: 20px;
+            box-shadow: 0 8px 26px rgba(255,122,61,0.12);
+            transition: transform .06s ease, box-shadow .12s ease;
         }
 
-        button:hover {
-            background-color: #45a049;
+        .btn-primary:active { transform: translateY(1px) }
+
+        .btn-secondary {
+            padding: 12px 14px;
+            background-color: #ffa25a; /* lighter orange */
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 6px 18px rgba(255,162,90,0.08);
         }
+
+        .btn-secondary:active { transform: translateY(1px) }
 
         button:disabled {
             background-color: #cccccc;
@@ -115,12 +147,13 @@
         }
 
         .result {
-            margin-top: 30px;
-            padding: 20px;
-            background-color: white;
-            border-radius: 4px;
-            border-left: 4px solid #4CAF50;
+            margin-top: 24px;
+            padding: 18px;
+            background-color: #fff7f0;
+            border-radius: 10px;
+            border-left: 4px solid #ff7a3d;
             display: none;
+            box-shadow: 0 8px 20px rgba(33,33,33,0.04);
         }
 
         .result.show {
@@ -167,25 +200,31 @@
 
 <body>
 
-<h2>ZY MRT Fare Calculator :D</h2>
+<div class="container">
+    <h2>ZY MRT Fare Calculator :D</h2>
 
-<div class="form-group">
+    <div class="form-group">
     <label for="start">Start Station:</label>
     <div class="autocomplete-container">
         <input type="text" id="start" placeholder="Type station name..." autocomplete="off">
         <div class="autocomplete-list" id="startList"></div>
     </div>
-</div>
+    </div>
 
-<div class="form-group">
+    <div class="form-group">
     <label for="end">End Station:</label>
     <div class="autocomplete-container">
         <input type="text" id="end" placeholder="Type station name..." autocomplete="off">
         <div class="autocomplete-list" id="endList"></div>
     </div>
-</div>
+    </div>
 
-<button onclick="calculateFare()" id="calculateBtn">Calculate Fare</button>
+    <div class="btn-row">
+        <button onclick="calculateFare()" id="calculateBtn" class="btn-primary">Calculate Fare</button>
+        <button onclick="location.href='multiple.html'" id="multiBtn" class="btn-secondary">Calculate Multiple Trips</button>
+    </div>
+
+</div>
 
 <div class="loading" id="loading">Loading...</div>
 

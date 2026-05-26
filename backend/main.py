@@ -48,6 +48,10 @@ def fare(start: str, end: str):
 
     result = get_fare(start_id, end_id)
 
+    # If user selected the same station for start and end, distance should be 0
+    if start == end:
+        result["distance"] = 0.0
+
     add_trip(start, end, result["fare"], result["distance"])
 
     return result
