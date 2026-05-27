@@ -17,7 +17,7 @@
         /* shorten the input boxes inside each half so they look neat */
         .half > input[type="text"]{ padding:11px 12px; width:100%; max-width:420px; border:1px solid #eedecf; border-radius:10px; background:#fffdf8 }
         .half > input[type="text"]:focus{ outline:none; border-color:#ff7a3d; box-shadow:0 8px 20px rgba(255,122,61,0.06) }
-        .autocomplete-list{ position:absolute; left:calc(50% - 420px/2); right:calc(50% - 420px/2); top:100%; background:#fff; border:1px solid #f0e6de; border-top:none; max-height:220px; overflow:auto; border-radius:0 0 8px 8px; display:none; z-index:1200 }
+        .autocomplete-list{ position:absolute; left:50%; transform:translateX(-50%); width:100%; max-width:420px; top:100%; background:#fff; border:1px solid #f0e6de; border-top:none; max-height:220px; overflow:auto; border-radius:0 0 8px 8px; display:none; z-index:1200 }
         .autocomplete-list.active{ display:block }
         .autocomplete-item{ padding:10px 12px; cursor:pointer }
         .autocomplete-item:hover{ background:#ff7a3d; color:#fff }
